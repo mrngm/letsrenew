@@ -28,12 +28,13 @@ def select_renewable_certificates(certificate_list):
     return [c for c in certificate_list if days_to_expiry(c) <= EXPIRY_LIMIT]
 
 def load_certificates(file_list):
+    """Load certificates into cryptography.x509 format from a file list"""
     certs = []
     for crt in file_list:
         try:
             cfile = open(crt, 'rb').read()
             cert = x509.load_pem_x509_certificate(cfile, default_backend())
-        except:
+        except (OSError, ValueError):
             print("Loading certificate " + crt + " failed.")
         else:
             certs.append(cert)
