@@ -27,6 +27,18 @@ def select_renewable_certificates(certificate_list):
     """From a certificate list, select certificates that expire in less than EXPIRY_LIMIT"""
     return [c for c in certificate_list if days_to_expiry(c) <= EXPIRY_LIMIT]
 
+def load_certificates(file_list):
+    certs = []
+    for crt in file_list:
+        try:
+            cfile = open(crt, 'rb').read()
+            cert = x509.load_pem_x509_certificate(cfile, default_backend())
+        except:
+            print("Loading certificate " + crt + " failed.")
+        else:
+            certs.append(cert)
+    return certs
+
 def main():
     """Build the argument parser and run the program"""
 
@@ -43,19 +55,12 @@ def main():
 
     certdir = args.certdir if args.certdir.endswith('/') else args.certdir + '/'
 
-    certificates = [c for c in listdir(certdir) if c.endswith(args.cert_ext)]
+    certificates = [certdir + c for c in listdir(certdir) if c.endswith(args.cert_ext)]
     if args.ignore_substring != '':
         certificates = [c for c in certificates if args.ignore_substring not in c]
 
     # load certificates
-    certs = []
-    for crt in certificates:
-        try:
-            cfile = open(certdir + crt, 'rb').read()
-            cert = x509.load_pem_x509_certificate(cfile, default_backend())
-            certs.append(cert)
-        except OSError as error:
-            print("OSError in reading " + args.certdir + crt + ": " + error)
+    certs = load_certificates(certificates)
 
     if args.dry_run:
         for crt in certs:
