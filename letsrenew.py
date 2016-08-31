@@ -8,7 +8,7 @@ import argparse
 
 from datetime import datetime as dt
 from os import listdir
-from cryptography.hazmat.backends import default_backend, openssl
+from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 
@@ -42,13 +42,13 @@ def main():
         certificates = [c for c in certificates if args.ignore_substring not in c]
 
     if args.dry_run:
-        for c in certificates:
+        for crt in certificates:
             try:
-                cfile = open(certdir + c, 'rb').read()
+                cfile = open(certdir + crt, 'rb').read()
                 cert = x509.load_pem_x509_certificate(cfile, default_backend())
                 print_certificate_information(cert)
             except OSError as error:
-                print("OSError in reading " + args.certdir + c + ": " + error)
+                print("OSError in reading " + args.certdir + crt + ": " + error)
         raise SystemExit
 
 if __name__ == '__main__':
