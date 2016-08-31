@@ -12,6 +12,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 
+EXPIRY_LIMIT = 2
+
 def days_to_expiry(certificate):
     """Get the number of days before a certificate expires"""
     return (certificate.not_valid_after - dt.utcnow()).days
@@ -20,6 +22,10 @@ def print_certificate_information(certificate):
     """Print some information about the supplied certificate"""
     common_name = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
     print("CN: " + common_name + ", expires in " + str(days_to_expiry(certificate)) + " days.")
+
+def select_renewable_certificates(certificate_list):
+    """From a certificate list, select certificates that expire in less than EXPIRY_LIMIT"""
+    return [c for c in certificate_list if days_to_expiry(c) <= EXPIRY_LIMIT]
 
 def main():
     """Build the argument parser and run the program"""
@@ -41,15 +47,26 @@ def main():
     if args.ignore_substring != '':
         certificates = [c for c in certificates if args.ignore_substring not in c]
 
+    # load certificates
+    certs = []
+    for crt in certificates:
+        try:
+            cfile = open(certdir + crt, 'rb').read()
+            cert = x509.load_pem_x509_certificate(cfile, default_backend())
+            certs.append(cert)
+        except OSError as error:
+            print("OSError in reading " + args.certdir + crt + ": " + error)
+
     if args.dry_run:
-        for crt in certificates:
-            try:
-                cfile = open(certdir + crt, 'rb').read()
-                cert = x509.load_pem_x509_certificate(cfile, default_backend())
-                print_certificate_information(cert)
-            except OSError as error:
-                print("OSError in reading " + args.certdir + crt + ": " + error)
+        for crt in certs:
+            print_certificate_information(crt)
         raise SystemExit
+
+    renewable_certificates = select_renewable_certificates(certs)
+
+    print("Renewable certificates: " + str(len(renewable_certificates)))
+    for rcrt in renewable_certificates:
+        print_certificate_information(rcrt)
 
 if __name__ == '__main__':
     main()
