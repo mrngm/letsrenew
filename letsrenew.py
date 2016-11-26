@@ -5,12 +5,16 @@ letsrenew.py automates certificate renewal with Let's Encrypt.
 """
 
 import argparse
+import subprocess
 
 from datetime import datetime as dt
 from os import listdir
 from cryptography.hazmat.backends import default_backend
 from cryptography import x509
 from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 EXPIRY_LIMIT = 2
 
@@ -18,9 +22,12 @@ def days_to_expiry(certificate):
     """Get the number of days before a certificate expires"""
     return (certificate.not_valid_after - dt.utcnow()).days
 
+def cert_common_name(certificate):
+    return certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+
 def print_certificate_information(certificate):
     """Print some information about the supplied certificate"""
-    common_name = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    common_name = cert_common_name(certificate)
     print("CN: " + common_name + ", expires in " + str(days_to_expiry(certificate)) + " days.")
 
 def select_renewable_certificates(certificate_list):
@@ -39,6 +46,52 @@ def load_certificates(file_list):
         else:
             certs.append(cert)
     return certs
+
+def build_private_key(common_name, keydir, numbits=4096, save=False):
+    key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=numbits,
+            backend=default_backend()
+        )
+    if save:
+        with open(keydir + common_name + ".key", "wb") as f:
+                f.write(key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                ))
+    return key
+
+def build_csr(common_name, private_key, csrdir="", save=False):
+    csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
+            # Provide various details about who we are.
+            x509.NameAttribute(NameOID.COUNTRY_NAME, u"NL"),
+            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"Gelderland"),
+            x509.NameAttribute(NameOID.LOCALITY_NAME, u"Nijmegen"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Moeilijklastig"),
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+        ])).sign(private_key, hashes.SHA256(), default_backend())
+    if save and csrdir != "":
+        with open(csrdir + common_name + ".csr", "wb") as f:
+                f.write(csr.public_bytes(serialization.Encoding.PEM))
+    return csr
+
+def call_acme_tiny(csr_file, account_key_file, acme_dir):
+    arguments = ["python",
+                 "/root/acme-tiny/acme_tiny.py",
+                 "--account-key", account_key_file,
+                 "--csr", csr_file + ".csr",
+                 "--acme-dir", acme_dir,
+                 "--quiet"
+                ]
+    certificate_contents = ""
+    try:
+        certificate_contents = subprocess.check_output(arguments)
+    except subprocess.CalledProcessError as ex:
+        print(ex.cmd)
+        print(ex.output)
+
+    return certificate_contents
 
 def main():
     """Build the argument parser and run the program"""
@@ -73,6 +126,10 @@ def main():
     print("Renewable certificates: " + str(len(renewable_certificates)))
     for rcrt in renewable_certificates:
         print_certificate_information(rcrt)
+        key = build_private_key(cert_common_name(rcrt), "/tmp/", save=True)
+        csr = build_csr(cert_common_name(rcrt), key, csrdir="/tmp/", save=True)
+        print(call_acme_tiny("/tmp/"+cert_common_name(rcrt), "/root/letsencrypt.key",
+                       "/var/www/challenges"))
 
 if __name__ == '__main__':
     main()
