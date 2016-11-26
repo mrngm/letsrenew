@@ -49,31 +49,31 @@ def load_certificates(file_list):
 
 def build_private_key(common_name, keydir, numbits=4096, save=False):
     key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=numbits,
-            backend=default_backend()
-        )
+        public_exponent=65537,
+        key_size=numbits,
+        backend=default_backend()
+    )
     if save:
-        with open(keydir + common_name + ".key", "wb") as f:
-                f.write(key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption(),
-                ))
+        with open(keydir + common_name + ".key", "wb") as private_key_file:
+            private_key_file.write(key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption(),
+            ))
     return key
 
 def build_csr(common_name, private_key, csrdir="", save=False):
     csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
-            # Provide various details about who we are.
-            x509.NameAttribute(NameOID.COUNTRY_NAME, u"NL"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"Gelderland"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, u"Nijmegen"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Moeilijklastig"),
-            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        ])).sign(private_key, hashes.SHA256(), default_backend())
+        # Provide various details about who we are.
+        x509.NameAttribute(NameOID.COUNTRY_NAME, u"NL"),
+        x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"Gelderland"),
+        x509.NameAttribute(NameOID.LOCALITY_NAME, u"Nijmegen"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Moeilijklastig"),
+        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+    ])).sign(private_key, hashes.SHA256(), default_backend())
     if save and csrdir != "":
-        with open(csrdir + common_name + ".csr", "wb") as f:
-                f.write(csr.public_bytes(serialization.Encoding.PEM))
+        with open(csrdir + common_name + ".csr", "wb") as csr_file:
+            csr_file.write(csr.public_bytes(serialization.Encoding.PEM))
     return csr
 
 def call_acme_tiny(csr_file, account_key_file, acme_dir):
@@ -129,7 +129,7 @@ def main():
         key = build_private_key(cert_common_name(rcrt), "/tmp/", save=True)
         csr = build_csr(cert_common_name(rcrt), key, csrdir="/tmp/", save=True)
         print(call_acme_tiny("/tmp/"+cert_common_name(rcrt), "/root/letsencrypt.key",
-                       "/var/www/challenges"))
+                             "/var/www/challenges"))
 
 if __name__ == '__main__':
     main()
