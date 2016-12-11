@@ -83,7 +83,7 @@ def build_csr(common_name, private_key, csrdir="", save=False):
 def call_acme_tiny(csr_file, account_key_file, acme_dir):
     """Call the acme-tiny python script to handle the certifcate signing request"""
     arguments = ["python",
-                 "/root/acme-tiny/acme_tiny.py",
+                 "./acme-tiny/acme_tiny.py",
                  "--account-key", account_key_file,
                  "--csr", csr_file + ".csr",
                  "--acme-dir", acme_dir,
