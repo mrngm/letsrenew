@@ -109,9 +109,27 @@ def main():
                         help=u'Default extension for certificate files (defaults to .crt)')
     parser.add_argument('--ignore-substring', metavar='STR', dest='ignore_substring',
                         help=u'Ignore files containing STR', default='')
+    parser.add_argument('--account_key', metavar='LEKEY', dest='account_key',
+                        help=u'Let\'s Encrypt account keyfile path, defaults to ./letsencrypt.key',
+                        default='./letsencrypt.key')
+    parser.add_argument('--challenge_dir', metavar='CDIR', dest='challenge_dir',
+                        help=u'ACME challenges directory, defaults to /var/www/challenges. \
+                        Must be writable by the current user', default='/var/www/challenges')
+    parser.add_argument('--acme-binary', metavar='ACBIN', dest='acme_binary',
+                        help=u'ACME client binary, defaults to acme-tiny', default='acme-tiny')
+    parser.add_argument('--output-dir', metavar='OUTDIR', dest='output_dir',
+                        help=u'Directory to output signed certificates, defaults to ./',
+                        default='./')
+    parser.add_argument('--build-chain', metavar='CHAINFILE', dest='chain_file', default="",
+                        help=u'Build a chain with a certificate chain file')
     args = parser.parse_args()
 
+    account_key = args.account_key
+    acme_binary = args.acme_binary
     certdir = args.certdir if args.certdir.endswith('/') else args.certdir + '/'
+    chain_file = args.chain_file if args.chain_file != "" else ""
+    challenge_dir = args.challenge_dir
+    output_dir = args.output_dir if args.output_dir.endswith('/') else args.output_dir + '/'
 
     certificates = [certdir + c for c in listdir(certdir) if c.endswith(args.cert_ext)]
     if args.ignore_substring != '':
