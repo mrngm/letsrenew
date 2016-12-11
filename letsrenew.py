@@ -23,6 +23,7 @@ def days_to_expiry(certificate):
     return (certificate.not_valid_after - dt.utcnow()).days
 
 def cert_common_name(certificate):
+    """Returns the common name attribute (CN) of a certificate"""
     return certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
 
 def print_certificate_information(certificate):
@@ -48,6 +49,7 @@ def load_certificates(file_list):
     return certs
 
 def build_private_key(common_name, keydir, numbits=4096, save=False):
+    """Create an RSA private key with e=65537. Defaults to 4096 bit private key"""
     key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=numbits,
@@ -63,6 +65,7 @@ def build_private_key(common_name, keydir, numbits=4096, save=False):
     return key
 
 def build_csr(common_name, private_key, csrdir="", save=False):
+    """Create a certificate signing request (CSR) given a common name and private key"""
     csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
         # Provide various details about who we are.
         x509.NameAttribute(NameOID.COUNTRY_NAME, u"NL"),
@@ -77,6 +80,7 @@ def build_csr(common_name, private_key, csrdir="", save=False):
     return csr
 
 def call_acme_tiny(csr_file, account_key_file, acme_dir):
+    """Call the acme-tiny python script to handle the certifcate signing request"""
     arguments = ["python",
                  "/root/acme-tiny/acme_tiny.py",
                  "--account-key", account_key_file,
