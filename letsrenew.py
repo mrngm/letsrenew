@@ -77,6 +77,7 @@ def build_csr(common_name, private_key, csrdir="", save=False):
     if save and csrdir != "":
         with open(csrdir + common_name + ".csr", "wb") as csr_file:
             csr_file.write(csr.public_bytes(serialization.Encoding.PEM))
+        return csrdir + common_name + ".csr"
     return csr
 
 def call_acme_tiny(csr_file, account_key_file, acme_dir):
@@ -137,21 +138,42 @@ def main():
 
     # load certificates
     certs = load_certificates(certificates)
+    renewable_certificates = select_renewable_certificates(certs)
 
     if args.dry_run:
         for crt in certs:
             print_certificate_information(crt)
+        if len(renewable_certificates) > 0:
+            print("... of which are renewable:")
+            for rcrt in renewable_certificates:
+                print_certificate_information(rcrt)
         raise SystemExit
 
-    renewable_certificates = select_renewable_certificates(certs)
 
     print("Renewable certificates: " + str(len(renewable_certificates)))
     for rcrt in renewable_certificates:
         print_certificate_information(rcrt)
-        key = build_private_key(cert_common_name(rcrt), "/tmp/", save=True)
-        csr = build_csr(cert_common_name(rcrt), key, csrdir="/tmp/", save=True)
-        print(call_acme_tiny("/tmp/"+cert_common_name(rcrt), "/root/letsencrypt.key",
-                             "/var/www/challenges"))
+        key = build_private_key(cert_common_name(rcrt), output_dir, save=True)
+        csr = build_csr(cert_common_name(rcrt), key, csrdir=output_dir, save=True)
+        if acme_binary == 'acme-tiny':
+            try:
+                # we assume the CSR is written to file
+                cert_contents = call_acme_tiny(csr, account_key,
+                                               challenge_dir)
+                cert_output_filename = output_dir + cert_common_name(rcrt) + '.crt'
+                cert_output = open(cert_output_filename, 'wb')
+                bytes_written = cert_output.write(cert_contents)
+                print("Written " + str(bytes_written) + " bytes to " + cert_output_filename + "!")
+                if chain_file != "":
+                    cert_chain_file = open(chain_file, 'rb')
+                    cert_chain_output_filename = output_dir + cert_common_name(rcrt) + 'chain.crt'
+                    cert_chain_output = open(cert_chain_output_filename, 'wb')
+                    chain_bytes_written = cert_chain_output.write(cert_contents + '\n' +
+                                                                  cert_chain_file)
+                    print("Written " + str(chain_bytes_written) + " bytes to " +
+                          cert_chain_output_filename + "!")
+            except OSError as ose:
+                print(ose)
 
 if __name__ == '__main__':
     main()
